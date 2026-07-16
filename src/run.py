@@ -34,8 +34,9 @@ def run(_run, _config, _log):
     _log.info("\n\n" + experiment_params + "\n")
 
     # configure tensorboard logger
+    map_name = args.env_args.get('map_name', args.env_args.get('scenario_name', 'default_env'))
     unique_token = "{}-{}-{}-{}-dim-{}-heads-{}-depth".format(args.name, args.agent,
-                                                                            args.env_args['map_name'],
+                                                                            map_name,
                                                                             args.emb, args.heads,
                                                                             args.depth)
 
@@ -54,19 +55,12 @@ def run(_run, _config, _log):
     run_sequential(args=args, logger=logger)
 
     # Clean up after finishing
-    print("Exiting Main")
-
-    print("Stopping all threads")
     for t in threading.enumerate():
         if t.name != "MainThread":
-            print("Thread {} is alive! Is daemon: {}".format(t.name, t.daemon))
             t.join(timeout=1)
-            print("Thread joined")
-
-    print("Exiting script")
 
     # Making sure framework really exits
-    os._exit(os.EX_OK)
+    os._exit(0)
 
 
 def evaluate_sequential(args, runner):
@@ -153,6 +147,9 @@ def run_sequential(args, logger):
 
         if args.evaluate or args.save_replay:
             evaluate_sequential(args, runner)
+            logger.log_stat("episode", runner.t_env, runner.t_env)
+            logger.print_recent_stats()
+            logger.console_logger.info("Finished Evaluation")
             return
 
     # start training

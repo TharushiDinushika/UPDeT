@@ -54,12 +54,12 @@ class BasicMAC:
                         # Zero out the unavailable actions
                         agent_outs[reshaped_avail_actions == 0] = 0.0
 
-        # transformer based agent
         else:
             agent_inputs = self._build_inputs_transformer(ep_batch, t)
             agent_outs, self.hidden_states = self.agent(agent_inputs,
                                                            self.hidden_states.reshape(-1, 1, self.args.emb),
-                                                           self.args.enemy_num, self.args.ally_num)
+                                                           getattr(self.args, "enemy_num", 0), 
+                                                           getattr(self.args, "ally_num", 0))
 
         return agent_outs.view(ep_batch.batch_size, self.n_agents, -1)
 
@@ -106,14 +106,19 @@ class BasicMAC:
         return inputs
 
     def _build_inputs_transformer(self, batch, t):
-        # currently we only support battles with marines (e.g. 3m 8m 5m_vs_6m)
-        # you can implement your own with any other agent type.
-        inputs = []
         raw_obs = batch["obs"][:, t]
-        arranged_obs = th.cat((raw_obs[:, :, -1:], raw_obs[:, :, :-1]), 2)
-        reshaped_obs = arranged_obs.view(-1, 1 + (self.args.enemy_num - 1) + self.args.ally_num, self.args.token_dim)
+        if getattr(self.args, "env", "sc2") == "mpe":
+            # For MPE, raw_obs is already constructed as entity sequence: (batch_size, n_entities, token_dim)
+            reshaped_obs = raw_obs.reshape(-1, getattr(self.args, "n_entities", 6), self.args.token_dim)
+        else:
+            # currently we only support battles with marines (e.g. 3m 8m 5m_vs_6m)
+            # you can implement your own with any other agent type.
+            arranged_obs = th.cat((raw_obs[:, :, -1:], raw_obs[:, :, :-1]), 2)
+            reshaped_obs = arranged_obs.view(-1, 1 + (self.args.enemy_num - 1) + self.args.ally_num, self.args.token_dim)
+            
+        inputs = []
         inputs.append(reshaped_obs)
-        inputs = th.cat(inputs, dim=1).cuda()
+        inputs = th.cat(inputs, dim=1).to(self.args.device)
         return inputs
 
     def _get_input_shape(self, scheme):

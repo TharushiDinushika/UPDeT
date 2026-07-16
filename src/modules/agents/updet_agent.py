@@ -9,14 +9,24 @@ class UPDeT(nn.Module):
         super(UPDeT, self).__init__()
         self.args = args
         self.transformer = Transformer(args.token_dim, args.emb, args.heads, args.depth, args.emb)
-        self.q_basic = nn.Linear(args.emb, 6)
+        
+        n_actions = getattr(args, "n_actions", 6) if getattr(args, "env", "sc2") == "mpe" else 6
+        self.q_basic = nn.Linear(args.emb, n_actions)
 
     def init_hidden(self):
         # make hidden states on same device as model
-        return torch.zeros(1, self.args.emb).cuda()
+        return torch.zeros(1, self.args.emb).to(self.args.device)
 
     def forward(self, inputs, hidden_state, task_enemy_num, task_ally_num):
         outputs, _ = self.transformer.forward(inputs, hidden_state, None)
+        
+        if getattr(self.args, "env", "sc2") == "mpe":
+            # For MPE, we just have basic actions (e.g., 5 movement actions)
+            # We don't have enemy specific attack actions
+            q = self.q_basic(outputs[:, 0, :])
+            h = outputs[:, -1:, :]
+            return q, h
+            
         # first output for 6 action (no_op stop up down left right)
         q_basic_actions = self.q_basic(outputs[:, 0, :])
 
