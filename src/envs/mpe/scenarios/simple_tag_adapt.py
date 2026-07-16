@@ -13,6 +13,9 @@ class Scenario(BaseScenario):
         num_agents = num_adversaries + num_good_agents
         num_landmarks = 0 # No blocks in ADAPT setup
         
+        # Automatic scaling env according to agent number (logarithmic)
+        world.arena_size = max(1.0, np.log(max(2, num_agents)) / np.log(6.0))
+        
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
         for i, agent in enumerate(world.agents):
@@ -66,7 +69,7 @@ class Scenario(BaseScenario):
         
         # set random initial states
         for agent in world.agents:
-            agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
+            agent.state.p_pos = np.random.uniform(-world.arena_size, +world.arena_size, world.dim_p)
             agent.state.p_vel = np.zeros(world.dim_p)
             agent.state.c = np.zeros(world.dim_c)
 
@@ -81,7 +84,7 @@ class Scenario(BaseScenario):
         pos = agent.state.p_pos
         
         # Check if out of bounds
-        if pos[0] < -1.0 or pos[0] > 1.0 or pos[1] < -1.0 or pos[1] > 1.0:
+        if pos[0] < -world.arena_size or pos[0] > world.arena_size or pos[1] < -world.arena_size or pos[1] > world.arena_size:
             # Find the axis and direction that is most out of bounds
             if abs(pos[0]) > abs(pos[1]):
                 if pos[0] > 0:
